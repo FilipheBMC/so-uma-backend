@@ -1,0 +1,2 @@
+Como ficaria a requisição para pegar as questões.
+GET /questions/search?subject=Direito%20Constitucional&year=2025&perPage=1
