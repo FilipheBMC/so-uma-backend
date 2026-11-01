@@ -93,6 +93,10 @@ export class QuestApiProvider implements QuestionsProvider {
     if (filters.afterId) {
       params.set("after_id", filters.afterId);
     }
+    console.log({
+  includeAnswerKey: filters.includeAnswerKey,
+  includeGabarito: params.get("include_gabarito"),
+});
 
     const response = await fetch(url, {
       method: "GET",

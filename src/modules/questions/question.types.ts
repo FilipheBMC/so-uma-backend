@@ -46,3 +46,9 @@ export type QuestionSearchResult = {
     hasMore: boolean;
   };
 };
+
+export type OldQuestionsQuery = {
+  amount?: number;
+  subject?: string;
+  onlyIncorrect?: boolean;
+};

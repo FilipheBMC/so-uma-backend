@@ -1,0 +1,204 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ai_analyses {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String?   @db.Uuid
+  contest_id    String?   @db.Uuid
+  task_type     String    @db.VarChar(30)
+  model         String    @db.VarChar(120)
+  status        String    @default("PENDING") @db.VarChar(20)
+  input_data    Json?
+  result_data   Json?
+  error_message String?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  finished_at   DateTime? @db.Timestamptz(6)
+  contests      contests? @relation(fields: [contest_id], references: [id], onUpdate: NoAction)
+  users         users?    @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([status], map: "ix_ai_analyses_status")
+  @@index([user_id, created_at(sort: Desc)], map: "ix_ai_analyses_user_created")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model answers {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attempt_id         String            @db.Uuid
+  question_id        String            @db.Uuid
+  selected_option_id String?           @db.Uuid
+  is_correct         Boolean?
+  time_spent_seconds Int?
+  answered_at        DateTime          @default(now()) @db.Timestamptz(6)
+  attempts           attempts          @relation(fields: [attempt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  questions          questions         @relation(fields: [question_id], references: [id], onUpdate: NoAction)
+  question_options   question_options? @relation(fields: [selected_option_id, question_id], references: [id, question_id], onUpdate: NoAction)
+
+  @@unique([attempt_id, question_id])
+  @@index([attempt_id], map: "ix_answers_attempt")
+  @@index([question_id, is_correct], map: "ix_answers_question_correct")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model attempts {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  simulation_id String      @db.Uuid
+  user_id       String      @db.Uuid
+  status        String      @default("IN_PROGRESS") @db.VarChar(20)
+  started_at    DateTime    @default(now()) @db.Timestamptz(6)
+  submitted_at  DateTime?   @db.Timestamptz(6)
+  answers       answers[]
+  simulations   simulations @relation(fields: [simulation_id], references: [id], onUpdate: NoAction)
+  users         users       @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([simulation_id], map: "ix_attempts_simulation")
+  @@index([user_id, started_at(sort: Desc)], map: "ix_attempts_user_started")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model contests {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String          @db.VarChar(200)
+  institution_name   String          @db.VarChar(180)
+  exam_board         String?         @db.VarChar(180)
+  position_title     String          @db.VarChar(180)
+  year               Int             @db.SmallInt
+  exam_date          DateTime?       @db.Date
+  edital_file_url    String?
+  status             String          @default("ACTIVE") @db.VarChar(20)
+  created_by_user_id String?         @db.Uuid
+  created_at         DateTime        @default(now()) @db.Timestamptz(6)
+  ai_analyses        ai_analyses[]
+  users              users?          @relation(fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  questions          questions[]
+  simulations        simulations[]
+  topics             topics[]
+  user_contests      user_contests[]
+
+  @@index([title, year], map: "ix_contests_title_year")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model question_options {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  question_id String    @unique(map: "uq_question_one_correct_option", where: raw("(is_correct = true)")) @db.Uuid
+  label       String    @db.VarChar(10)
+  content     String
+  is_correct  Boolean   @default(false)
+  sort_order  Int       @default(0) @db.SmallInt
+  answers     answers[]
+  questions   questions @relation(fields: [question_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([id, question_id])
+  @@unique([question_id, label])
+  @@unique([question_id, sort_order])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model questions {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contest_id           String?                @db.Uuid
+  topic_id             String?                @db.Uuid
+  statement            String
+  explanation          String?
+  difficulty           Int?                   @db.SmallInt
+  source_name          String?                @db.VarChar(200)
+  source_url           String?
+  origin               String                 @default("IMPORTED") @db.VarChar(20)
+  is_active            Boolean                @default(true)
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  source_provider      String?                @db.VarChar(100)
+  external_id          String?                @db.VarChar(200)
+  last_synced_at       DateTime?              @db.Timestamptz(6)
+  answers              answers[]
+  question_options     question_options?
+  contests             contests?              @relation(fields: [contest_id], references: [id], onUpdate: NoAction)
+  topics               topics?                @relation(fields: [topic_id], references: [id], onUpdate: NoAction)
+  simulation_questions simulation_questions[]
+
+  @@unique([source_provider, external_id], map: "uq_questions_external_id")
+  @@index([is_active], map: "ix_questions_active")
+  @@index([contest_id], map: "ix_questions_contest")
+  @@index([topic_id], map: "ix_questions_topic")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model simulation_questions {
+  simulation_id String      @db.Uuid
+  question_id   String      @db.Uuid
+  sort_order    Int
+  points        Decimal     @default(1.00) @db.Decimal(6, 2)
+  questions     questions   @relation(fields: [question_id], references: [id], onUpdate: NoAction)
+  simulations   simulations @relation(fields: [simulation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([simulation_id, question_id])
+  @@unique([simulation_id, sort_order])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model simulations {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id              String?                @db.Uuid
+  contest_id           String?                @db.Uuid
+  title                String                 @db.VarChar(200)
+  mode                 String                 @default("CUSTOM") @db.VarChar(20)
+  time_limit_minutes   Int?
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  attempts             attempts[]
+  simulation_questions simulation_questions[]
+  contests             contests?              @relation(fields: [contest_id], references: [id], onUpdate: NoAction)
+  users                users?                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([user_id, created_at(sort: Desc)], map: "ix_simulations_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model topics {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contest_id   String      @db.Uuid
+  parent_id    String?     @db.Uuid
+  title        String      @db.VarChar(400)
+  item_type    String      @default("TOPIC") @db.VarChar(20)
+  sort_order   Int         @default(0)
+  created_at   DateTime    @default(now()) @db.Timestamptz(6)
+  questions    questions[]
+  contests     contests    @relation(fields: [contest_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  topics       topics?     @relation("topicsTotopics", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_topics topics[]    @relation("topicsTotopics")
+
+  @@index([contest_id, parent_id, sort_order], map: "ix_topics_contest_parent")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_contests {
+  user_id     String    @db.Uuid
+  contest_id  String    @db.Uuid
+  status      String    @default("STUDYING") @db.VarChar(20)
+  target_date DateTime? @db.Date
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  contests    contests  @relation(fields: [contest_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, contest_id])
+  @@index([contest_id], map: "ix_user_contests_contest")
+}
+
+model users {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String          @db.VarChar(120)
+  email         String          @unique @db.VarChar(254)
+  password_hash String          @db.VarChar(255)
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  ai_analyses   ai_analyses[]
+  attempts      attempts[]
+  contests      contests[]
+  simulations   simulations[]
+  user_contests user_contests[]
+}

@@ -9,3 +9,4 @@ export async function searchQuestions(
 
   return provider.search(filters);
 }
+
