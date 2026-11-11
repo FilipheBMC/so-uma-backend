@@ -1,4 +1,5 @@
 import type { Question } from "../questions/question.types.js";
+import type { EditalAnalysis, ManualStudyInput } from "./study.interface.js";
 
 export type PreparedSubject = {
   name: string;
@@ -18,3 +19,13 @@ export type StudyPreparationResult = {
     totalQuestionsReturned: number;
   };
 };
+
+export type StudyOrchestratorInput =
+  | {
+      source: "edital";
+      data: EditalAnalysis;
+    }
+  | {
+      source: "manual";
+      data: ManualStudyInput;
+    };

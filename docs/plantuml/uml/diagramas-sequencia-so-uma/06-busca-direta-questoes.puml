@@ -1,0 +1,40 @@
+@startuml
+title Sequência — Busca direta de questões
+autonumber
+actor "Concurseiro" as U
+participant "Frontend" as FE
+participant "Fastify\nGET /questions/search" as API
+participant "authenticate()" as Auth
+participant "JWT plugin" as JWT
+participant "questions.routes" as Route
+participant "provider.service\ngetQuestions()" as Provider
+participant "Quest API" as Quest
+
+U -> FE: Informa filtros de pesquisa
+FE -> API: GET /questions/search?\nbanca, ano, materia, assunto,\npage, per_page + Bearer token
+API -> Auth: preHandler do plugin
+Auth -> JWT: jwtVerify()
+alt Token inválido/ausente
+  JWT --> Auth: Falha
+  Auth --> FE: HTTP 401
+else Token válido
+  JWT --> Auth: Identidade validada
+  API -> Route: request.query
+  Route -> Route: Aplica page=1 e per_page=5\nquando não informados
+  Route -> Provider: getQuestions(filtros)
+  Provider -> Provider: Monta URL e query params\ninclui include_gabarito=true
+  Provider -> Quest: GET /questoes\nX-API-Key + filtros
+  alt Resposta HTTP de sucesso
+    Quest --> Provider: JSON de questões
+    Provider --> Route: Questões
+    Route --> API: Resultado
+    API --> FE: HTTP 200 + questões
+    FE --> U: Exibe resultados
+  else Erro externo ou de rede
+    Quest --> Provider: Erro
+    Provider --> Route: Exceção
+    Route --> API: Registra erro
+    API --> FE: HTTP 500\n"Erro ao buscar questões"
+  end
+end
+@enduml

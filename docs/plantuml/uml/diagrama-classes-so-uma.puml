@@ -1,0 +1,201 @@
+@startuml
+title So Uma? - Diagrama de Classes do Modelo de Dados
+
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+hide methods
+hide stereotypes
+
+' Diagrama derivado do schema.prisma enviado.
+' Representa tabelas/modelos persistidos, nao classes de servico TypeScript.
+
+package "Identidade e usuarios" {
+  class users {
+    id: UUID <<PK>>
+    name: varchar(120)
+    email: varchar(254) <<UNIQUE>>
+    password_hash: varchar(255)
+    created_at: timestamptz
+  }
+}
+
+package "Concursos e conteudo programatico" {
+  class contests {
+    id: UUID <<PK>>
+    title: varchar(200)
+    institution_name: varchar(180)
+    exam_board: varchar(180)
+    position_title: varchar(180)
+    year: smallint
+    exam_date: date
+    edital_file_url: String
+    status: varchar(20)
+    created_by_user_id: UUID <<FK, nullable>>
+    created_at: timestamptz
+  }
+
+  class user_contests {
+    user_id: UUID <<PK, FK>>
+    contest_id: UUID <<PK, FK>>
+    status: varchar(20)
+    target_date: date
+    created_at: timestamptz
+  }
+
+  class topics {
+    id: UUID <<PK>>
+    contest_id: UUID <<FK>>
+    parent_id: UUID <<FK, nullable>>
+    title: varchar(400)
+    item_type: varchar(20)
+    sort_order: int
+    created_at: timestamptz
+  }
+}
+
+package "Questoes" {
+  class questions {
+    id: UUID <<PK>>
+    contest_id: UUID <<FK, nullable>>
+    topic_id: UUID <<FK, nullable>>
+    statement: text
+    explanation: text
+    difficulty: smallint
+    source_name: varchar(200)
+    source_url: String
+    origin: varchar(20)
+    is_active: boolean
+    created_at: timestamptz
+    source_provider: varchar(100)
+    external_id: varchar(200)
+    last_synced_at: timestamptz
+  }
+
+  class question_options {
+    id: UUID <<PK>>
+    question_id: UUID <<FK, UNIQUE>>
+    label: varchar(10)
+    content: text
+    is_correct: boolean
+    sort_order: smallint
+  }
+}
+
+package "Simulados e tentativas" {
+  class simulations {
+    id: UUID <<PK>>
+    user_id: UUID <<FK, nullable>>
+    contest_id: UUID <<FK, nullable>>
+    title: varchar(200)
+    mode: varchar(20)
+    time_limit_minutes: int
+    created_at: timestamptz
+  }
+
+  class simulation_questions {
+    simulation_id: UUID <<PK, FK>>
+    question_id: UUID <<PK, FK>>
+    sort_order: int
+    points: decimal(6,2)
+  }
+
+  class attempts {
+    id: UUID <<PK>>
+    simulation_id: UUID <<FK>>
+    user_id: UUID <<FK>>
+    status: varchar(20)
+    started_at: timestamptz
+    submitted_at: timestamptz
+  }
+
+  class answers {
+    id: UUID <<PK>>
+    attempt_id: UUID <<FK>>
+    question_id: UUID <<FK>>
+    selected_option_id: UUID <<FK, nullable>>
+    is_correct: boolean
+    time_spent_seconds: int
+    answered_at: timestamptz
+  }
+}
+
+package "Inteligencia artificial" {
+  class ai_analyses {
+    id: UUID <<PK>>
+    user_id: UUID <<FK, nullable>>
+    contest_id: UUID <<FK, nullable>>
+    task_type: varchar(30)
+    model: varchar(120)
+    status: varchar(20)
+    input_data: JSON
+    result_data: JSON
+    error_message: text
+    created_at: timestamptz
+    finished_at: timestamptz
+  }
+}
+
+' Relacionamentos de usuarios
+users "0..1" -- "0..*" contests : cria
+users "1" -- "0..*" user_contests : acompanha
+contests "1" -- "0..*" user_contests : possui vinculos
+
+users "0..1" -- "0..*" simulations : proprietario
+users "1" -- "0..*" attempts : realiza
+users "0..1" -- "0..*" ai_analyses : solicita
+
+' Relacionamentos de concursos e topicos
+contests "1" -- "0..*" topics : organiza
+topics "0..1" -- "0..*" topics : topico pai / filhos
+
+' Relacionamentos de questoes
+contests "0..1" -- "0..*" questions : contextualiza
+topics "0..1" -- "0..*" questions : classifica
+questions "1" -- "0..1" question_options : possui alternativa
+questions "1" -- "0..*" answers : recebe respostas
+
+' Relacionamentos de simulados
+contests "0..1" -- "0..*" simulations : referencia
+simulations "1" -- "0..*" simulation_questions : contem
+questions "1" -- "0..*" simulation_questions : incluida em
+simulations "1" -- "0..*" attempts : recebe tentativas
+attempts "1" -- "0..*" answers : registra
+
+' A resposta pode apontar para uma alternativa escolhida.
+' A FK composta no schema garante que a alternativa pertence a mesma questao.
+question_options "0..1" -- "0..*" answers : alternativa selecionada
+
+' Analises podem estar associadas a um concurso.
+contests "0..1" -- "0..*" ai_analyses : recebe analises
+
+note right of user_contests
+  Entidade associativa entre users e contests.
+  Chave primaria composta:
+  (user_id, contest_id).
+end note
+
+note right of simulation_questions
+  Entidade associativa entre simulations e questions.
+  Armazena atributos do relacionamento:
+  ordem da questao e pontuacao.
+  Chave primaria composta:
+  (simulation_id, question_id).
+end note
+
+note bottom of question_options
+  O schema possui UNIQUE em question_id,
+  portanto cada questao pode ter no maximo
+  uma linha em question_options.
+  A restricao parcial uq_question_one_correct_option
+  limita a uma alternativa correta por questao.
+end note
+
+note bottom of answers
+  UNIQUE (attempt_id, question_id):
+  uma tentativa registra no maximo
+  uma resposta por questao.
+end note
+
+@enduml

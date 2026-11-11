@@ -2,9 +2,12 @@ import type { FastifyPluginAsync } from "fastify";
 import { searchQuestions } from "./questions.service.js";
 import type { QuestApiQuestionFilters } from "./providers/quest-api/interfaces/questao.interface.js";
 import { getQuestions } from "./providers/quest-api/provider.service.js";
+import { authenticate } from "../auth/auth.middleware.js";
 
 
 export const questionsRoutes: FastifyPluginAsync = async (app) => {
+  // Middleware para conseguir validar autenticação
+  app.addHook("preHandler", authenticate);
   /**
    * Essa rota tem que buscar questões por:
    * Banca, ano, matéria, assunto, quantidade por página

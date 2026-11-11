@@ -1,0 +1,28 @@
+@startuml
+title Sequência — Middleware de autenticação nas rotas protegidas
+autonumber
+actor "Cliente" as U
+participant "Frontend / Cliente HTTP" as FE
+participant "Fastify\nrota protegida" as API
+participant "auth.middleware\nauthenticate()" as Middleware
+participant "JWT plugin" as JWT
+participant "Handler da rota" as Handler
+
+U -> FE: Solicita recurso protegido
+FE -> API: Requisição + Authorization: Bearer token
+API -> Middleware: preHandler / addHook
+Middleware -> JWT: request.jwtVerify()
+alt Token ausente, inválido ou expirado
+  JWT --> Middleware: Lança erro
+  Middleware --> API: HTTP 401\n{ error, message }
+  API --> FE: Resposta 401
+  FE --> U: Solicita autenticação
+else Token válido
+  JWT --> Middleware: Popula request.user
+  Middleware --> API: Continua pipeline
+  API -> Handler: Executa handler da rota
+  Handler --> API: Resultado da operação
+  API --> FE: Resposta da rota
+  FE --> U: Exibe recurso
+end
+@enduml

@@ -1,0 +1,36 @@
+[33ma0562f9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelop[m[33m, [m[1;31morigin/develop[m[33m)[m feat: descrição da funcionalidade
+ .gitignore                                                                                  |    1 [31m-[m
+ package-lock.json                                                                           |   20 [32m+[m[31m-[m
+ package.json                                                                                |    3 [32m+[m[31m-[m
+ src/app.ts                                                                                  |  226 [32m+++++[m[31m-[m
+ src/modules/ai/.agents/skills/prisma-cli/SKILL.md                                           |  267 [32m+++++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/agent-safety.md                         |   27 [32m+[m
+ src/modules/ai/.agents/skills/prisma-cli/references/complete.md                             |   22 [32m+[m
+ src/modules/ai/.agents/skills/prisma-cli/references/db-execute.md                           |   78 [32m++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/db-pull.md                              |  185 [32m+++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/db-push.md                              |  150 [32m++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/db-seed.md                              |  188 [32m+++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/debug.md                                |   46 [32m++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/dev.md                                  |  157 [32m++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/format.md                               |   48 [32m++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/generate.md                             |  173 [32m++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/init.md                                 |  139 [32m++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/mcp.md                                  |   39 [32m+[m
+ src/modules/ai/.agents/skills/prisma-cli/references/migrate-deploy.md                       |  127 [32m+++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/migrate-dev.md                          |  145 [32m++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/migrate-diff.md                         |   89 [32m+++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/migrate-reset.md                        |   80 [32m++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/migrate-resolve.md                      |   57 [32m++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/migrate-status.md                       |   65 [32m++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/studio.md                               |  137 [32m++++[m
+ src/modules/ai/.agents/skills/prisma-cli/references/validate.md                             |   53 [32m++[m
+ src/modules/ai/.agents/skills/prisma-client-api/SKILL.md                                    |  216 [32m+++++[m
+ src/modules/ai/.agents/skills/prisma-client-api/references/client-methods.md                |  223 [32m++++++[m
+ src/modules/ai/.agents/skills/prisma-client-api/references/constructor.md                   |  221 [32m++++++[m
+ src/modules/ai/.agents/skills/prisma-client-api/references/filters.md                       |  256 [32m++++++[m
+ src/modules/ai/.agents/skills/prisma-client-api/references/model-queries.md                 |  281 [32m+++++++[m
+ src/modules/ai/.agents/skills/prisma-client-api/references/query-options.md                 |  276 [32m+++++++[m
+ src/modules/ai/.agents/skills/prisma-client-api/references/raw-queries.md                   |  198 [32m+++++[m
+ src/modules/ai/.agents/skills/prisma-client-api/references/relations.md                     |  308 [32m++++++++[m
+ src/modules/ai/.agents/skills/prisma-client-api/references/transactions.md                  |  184 [32m+++++[m
+ src/modules/ai/.agents/skills/prisma-compute/SKILL.md                                  

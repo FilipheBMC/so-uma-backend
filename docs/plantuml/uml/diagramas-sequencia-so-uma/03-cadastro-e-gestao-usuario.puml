@@ -1,0 +1,101 @@
+@startuml
+title Sequência — Cadastro e operações de usuário
+autonumber
+actor "Concurseiro / Cliente API" as U
+participant "Frontend / Cliente" as FE
+participant "Fastify\n/users" as API
+participant "user.service" as S
+participant "Argon2" as Hash
+participant "userRepository" as Repo
+database "PostgreSQL\n(users)" as DB
+
+group Cadastro — POST /users
+  U -> FE: Preenche nome, e-mail e senha
+  FE -> API: POST /users { name, email, password }
+  API -> API: Valida schema
+  API -> S: createUser(input)
+  S -> S: Normaliza nome e e-mail
+  S -> Hash: hash(password, Argon2id)
+  Hash --> S: password_hash
+  S -> Repo: create({ name, email, password_hash })
+  Repo -> DB: INSERT users
+  alt E-mail já cadastrado
+    DB --> Repo: Violação unique (P2002)
+    Repo --> S: Erro de unicidade
+    S --> API: UserAlreadyExistsError
+    API --> FE: HTTP 409
+  else Cadastro concluído
+    DB --> Repo: Usuário sem password_hash
+    Repo --> S: Usuário público
+    S --> API: Usuário criado
+    API --> FE: HTTP 201
+  end
+end
+
+group Consulta — GET /users/:id
+  U -> FE: Solicita usuário por ID
+  FE -> API: GET /users/{id}
+  API -> S: getUserById(id)
+  S -> Repo: findById(id)
+  Repo -> DB: SELECT por id
+  DB --> Repo: Registro ou vazio
+  Repo --> S: Resultado
+  alt Não encontrado
+    S --> API: UserNotFoundError
+    API --> FE: HTTP 404
+  else Encontrado
+    S --> API: Usuário público
+    API --> FE: HTTP 200
+  end
+end
+
+group Atualização — PATCH /users/:id
+  U -> FE: Altera nome e/ou e-mail
+  FE -> API: PATCH /users/{id} { campos }
+  API -> API: Valida ID e corpo
+  API -> S: updateUser(id, input)
+  S -> S: Normaliza e valida campos
+  S -> Repo: update(id, data)
+  Repo -> DB: UPDATE users
+  alt ID inexistente
+    DB --> Repo: P2025
+    Repo --> S: Erro
+    S --> API: UserNotFoundError
+    API --> FE: HTTP 404
+  else E-mail duplicado
+    DB --> Repo: P2002
+    Repo --> S: Erro
+    S --> API: UserAlreadyExistsError
+    API --> FE: HTTP 409
+  else Atualizado
+    DB --> Repo: Usuário atualizado
+    Repo --> S: Usuário público
+    S --> API: Resultado
+    API --> FE: HTTP 200
+  end
+end
+
+group Exclusão — DELETE /users/:id
+  U -> FE: Solicita exclusão
+  FE -> API: DELETE /users/{id}
+  API -> S: deleteUser(id)
+  S -> Repo: delete(id)
+  Repo -> DB: DELETE users
+  alt ID inexistente
+    DB --> Repo: P2025
+    Repo --> S: Erro
+    S --> API: UserNotFoundError
+    API --> FE: HTTP 404
+  else Há registros relacionados
+    DB --> Repo: P2003
+    Repo --> S: Erro de integridade
+    S --> API: UserDeleteConflictError
+    API --> FE: HTTP 409
+  else Excluído
+    DB --> Repo: Exclusão concluída
+    Repo --> S: Confirmação
+    S --> API: Sucesso
+    API --> FE: HTTP 204
+  end
+end
+@enduml

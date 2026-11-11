@@ -1,0 +1,74 @@
+@startuml
+' Diagrama de Caso de Uso — Só Uma?
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  ArrowColor #475569
+}
+skinparam rectangle {
+  BorderColor #64748B
+  BackgroundColor #FFFFFF
+}
+
+actor "Concurseiro" as User
+actor "Serviço de IA\n(OpenRouter)" as AI
+actor "API de Questões\n(Quest API)" as Quest
+
+rectangle "Plataforma Só Uma?" {
+  package "Acesso e conta" {
+    usecase "Cadastrar conta" as UC_Register
+    usecase "Autenticar-se" as UC_Login
+    usecase "Consultar perfil" as UC_Profile
+    usecase "Gerenciar dados\nda conta" as UC_Account
+  }
+
+  package "Preparação para concursos" {
+    usecase "Enviar edital em PDF" as UC_Upload
+    usecase "Analisar conteúdo\ndo edital" as UC_Analyze
+    usecase "Visualizar análise\ndo edital" as UC_ViewAnalysis
+    usecase "Gerar questões a partir\nda análise" as UC_Generate
+    usecase "Pesquisar questões" as UC_Search
+    usecase "Filtrar questões por banca,\nano, matéria e assunto" as UC_Filter
+  }
+}
+
+User --> UC_Register
+User --> UC_Login
+User --> UC_Profile
+User --> UC_Account
+User --> UC_Upload
+User --> UC_ViewAnalysis
+User --> UC_Generate
+User --> UC_Search
+
+UC_Account .> UC_Login : <<include>>
+UC_Upload .> UC_Analyze : <<include>>
+UC_Analyze --> AI : solicita interpretação
+UC_Generate --> Quest : consulta questões
+UC_Search --> Quest : consulta questões
+UC_Filter .> UC_Search : <<extend>>
+
+note bottom of UC_Account
+  Inclui atualização e exclusão de conta.
+  A listagem geral de usuários existente
+  no backend está identificada como rota
+  de apoio a testes locais, não como
+  funcionalidade principal do concurseiro.
+end note
+
+note bottom of UC_Generate
+  O backend recebe a análise estruturada,
+  organiza matérias/tópicos e consulta
+  questões no serviço integrado.
+end note
+
+note bottom of UC_Search
+  Pesquisa autenticada com filtros
+  disponíveis na integração atual:
+  banca, ano, matéria e assunto.
+end note
+@enduml

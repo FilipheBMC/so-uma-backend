@@ -1,0 +1,101 @@
+@startuml
+title Diagrama de Atividades — Fluxo de análise de edital e busca de questões\nSó Uma?
+
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  DiamondBackgroundColor #FEF3C7
+  DiamondBorderColor #B45309
+  ArrowColor #475569
+  BarColor #64748B
+}
+skinparam partition {
+  BorderColor #94A3B8
+  BackgroundColor #FFFFFF
+  FontColor #0F172A
+}
+
+start
+
+partition "Concurseiro" {
+  :Acessar a plataforma;
+  :Autenticar-se;
+  :Selecionar a opção de análise de edital;
+  :Escolher e enviar o arquivo PDF;
+}
+
+partition "Backend — Fastify" {
+  :Receber requisição e arquivo;
+  :Validar autenticação e arquivo;
+  if (Arquivo válido e permitido?) then (Sim)
+    :Preparar conteúdo do edital\npara processamento;
+  else (Não)
+    :Retornar mensagem de validação;
+    partition "Concurseiro" {
+      :Corrigir arquivo ou requisição;
+    }
+    stop
+  endif
+}
+
+partition "Serviço de IA — OpenRouter" {
+  :Receber conteúdo e instruções;
+  :Interpretar o edital;
+  :Identificar matérias, assuntos\ne tópicos;
+  :Produzir resultado estruturado;
+}
+
+partition "Backend — Fastify" {
+  :Receber resposta da IA;
+  if (Análise concluída com sucesso?) then (Sim)
+    :Validar e organizar os dados\nretornados;
+    :Persistir ou disponibilizar\nresultado da análise;
+  else (Não)
+    :Registrar falha e preparar erro;
+    partition "Concurseiro" {
+      :Visualizar aviso de falha;
+    }
+    stop
+  endif
+}
+
+partition "Concurseiro" {
+  :Visualizar matérias e tópicos;
+  :Selecionar matéria ou assunto;
+  :Definir filtros de questões\n(banca, ano e outros disponíveis);
+  :Solicitar questões;
+}
+
+partition "Backend — Fastify" {
+  :Validar parâmetros da pesquisa;
+  :Montar requisição para a API externa;
+}
+
+partition "Quest API" {
+  :Receber filtros;
+  :Pesquisar questões correspondentes;
+  :Retornar questões e dados disponíveis;
+}
+
+partition "Backend — Fastify" {
+  :Receber resposta da Quest API;
+  if (Consulta retornou resultado?) then (Sim)
+    :Normalizar resposta para o frontend;
+  else (Não)
+    :Preparar resposta sem resultados\nou mensagem de erro;
+  endif
+}
+
+partition "Concurseiro" {
+  :Visualizar questões ou aviso;
+  if (Há questões para estudar?) then (Sim)
+    :Resolver questões;
+    :Consultar gabarito e explicações\nquando disponíveis;
+  else (Não)
+    :Ajustar filtros ou escolher\noutro assunto;
+  endif
+}
+
+stop
+@enduml

@@ -1,0 +1,35 @@
+@startuml
+title Sequência — Consultar usuário autenticado (/auth/me)
+autonumber
+actor "Concurseiro" as U
+participant "Frontend" as FE
+participant "Fastify\n/auth/me" as API
+participant "JWT plugin" as JWT
+participant "auth.service\ngetAuthenticatedUser()" as Auth
+participant "userRepository" as Repo
+database "PostgreSQL\n(users)" as DB
+
+U -> FE: Solicita dados da sessão
+FE -> API: GET /auth/me\nAuthorization: Bearer <token>
+API -> JWT: request.jwtVerify()
+alt Token ausente, inválido ou expirado
+  JWT --> API: Falha na verificação
+  API --> FE: HTTP 401
+  FE --> U: Solicita novo login
+else Token válido
+  JWT --> API: request.user.sub
+  API -> Auth: getAuthenticatedUser(sub)
+  Auth -> Repo: findById(id)
+  Repo -> DB: SELECT usuário por id
+  DB --> Repo: Dados públicos ou nenhum registro
+  Repo --> Auth: Resultado
+  alt Usuário não encontrado
+    Auth --> API: AuthUserNotFoundError
+    API --> FE: HTTP 404
+  else Usuário encontrado
+    Auth --> API: Dados públicos do usuário
+    API --> FE: HTTP 200 { user }
+    FE --> U: Exibe dados da conta
+  end
+end
+@enduml

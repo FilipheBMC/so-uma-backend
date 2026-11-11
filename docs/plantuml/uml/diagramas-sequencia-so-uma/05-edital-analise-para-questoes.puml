@@ -1,0 +1,56 @@
+@startuml
+title Sequência — Gerar questões a partir da análise do edital
+autonumber
+actor "Concurseiro" as U
+participant "Frontend" as FE
+participant "Fastify\nPOST /editais/pdf/questions" as API
+participant "authenticate()" as Auth
+participant "JWT plugin" as JWT
+participant "study-preparation.service\nstudyOrchestror()" as Study
+participant "study.organaizer\norganizer()" as Organizer
+participant "questions.service\nquestionService()" as QS
+participant "provider.service\nquestionGetter()" as Provider
+participant "Quest API" as Quest
+
+U -> FE: Seleciona análise e solicita questões
+FE -> API: POST /editais/pdf/questions\n{ analysis }
+API -> Auth: preHandler do plugin
+Auth -> JWT: jwtVerify()
+alt Token inválido/ausente
+  JWT --> Auth: Falha
+  Auth --> FE: HTTP 401
+else Token válido
+  JWT --> Auth: Identidade validada
+  API -> API: Valida subjects e groups
+  alt Análise ausente ou inválida
+    API --> FE: HTTP 400
+  else Análise válida
+    API -> Study: studyOrchestror({ source: "edital", data })
+    Study -> Organizer: organizer(input)
+    Organizer -> Organizer: Mapeia subjects e questionCount
+    Organizer -> Organizer: Distribui quantidade restante\npor matérias pendentes dentro dos grupos
+    Organizer --> Study: Dados organizados
+    Study -> QS: questionService(dataOrganized)
+    loop Para cada matéria com amount > 0
+      QS -> Provider: questionGetter({ subject, amount })
+      Provider -> Quest: GET /questoes\nmateria, per_page, page, include_gabarito=true
+      alt Quest API responde com sucesso
+        Quest --> Provider: QuestApiResponse
+        Provider --> QS: Questões
+        QS -> QS: Adiciona resultado da matéria
+        opt Nenhuma questão encontrada
+          QS -> QS: Adiciona notificação
+        end
+      else Erro na consulta
+        Quest --> Provider: Erro HTTP/rede
+        Provider --> QS: Exceção
+        QS -> QS: Registra notificação\npara a matéria
+      end
+    end
+    QS --> Study: { results, notifications }
+    Study --> API: Dados organizados + questões
+    API --> FE: HTTP 200\n{ message, result }
+    FE --> U: Exibe questões e notificações
+  end
+end
+@enduml

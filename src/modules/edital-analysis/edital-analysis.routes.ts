@@ -1,7 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import { AnalyseEditalByuserText, editalAnalyse } from "./edital-analysis.service.js";
-import type { DisciplinaEdital, EditalAnalysis } from "./types/editalAnalysis.interface.js";
+import type { EditalAnalysis } from "./types/editalAnalysis.interface.js";
 import { AnalyseTextFromPDF } from "../ai/openrouter.service.js";
+import { studyOrchestror } from "../study/study-preparation.service.js";
+import { authenticate } from "../auth/auth.middleware.js";
+import type {
+  EditalAnalysis as PdfAIAnalysis
+} from "../ai/openrouter.service.js";
 
 export type SubjectTopics = {
   assunto: string;
@@ -15,6 +20,9 @@ export type PdfTextBody = {
 const MAX_FILE = 10 * 1024 * 1024; // 10 MB
 
 export const pdfAnalysis: FastifyPluginAsync = async (app) => {
+  // Middleware para conseguir validar autenticação
+  app.addHook("preHandler", authenticate);
+
   app.post("/pdf", async (request, reply) => {
     const file = await request.file({
       limits: {
@@ -77,19 +85,65 @@ export const pdfAnalysis: FastifyPluginAsync = async (app) => {
 
     // Extrai o texto do PDF.
     const textExtracted = await editalAnalyse(pdfBuffer);
-    const result = await AnalyseTextFromPDF(textExtracted);
-    // modificar essa parte para conversar com a AI
+    // const result = await AnalyseTextFromPDF(textExtracted);
+
+    // const trying = await studyOrchestror({
+    //   source: "edital",
+    //   data: result
+    // })
 
     // return reply.status(200).send({
-    //   message: "Texto do edital extraído com sucesso.",
-    //   filename: file.filename,
-    //   characters: textExtracted.length,
-    //   textExtracted,
-    // });
+    //   trying
+    // })
+
+    const analysis = await AnalyseTextFromPDF(textExtracted);
+
     return reply.status(200).send({
-      result
-    })
+      message: "Edital analisado com sucesso.",
+      analysis,
+    });
   });
+
+
+  app.post<{
+    Body: {
+      analysis: PdfAIAnalysis;
+    };
+  }>("/pdf/questions", async (request, reply) => {
+    try {
+      const { analysis } = request.body;
+
+      // Validação básica dos dados recebidos.
+      if (
+        !analysis ||
+        !Array.isArray(analysis.subjects) ||
+        analysis.subjects.length === 0 ||
+        !Array.isArray(analysis.groups)
+      ) {
+        return reply.status(400).send({
+          message: "Envie uma análise válida com pelo menos uma matéria.",
+        });
+      }
+
+      const result = await studyOrchestror({
+        source: "edital",
+        data: analysis,
+      });
+
+      return reply.status(200).send({
+        message: "Questões geradas com sucesso.",
+        result,
+      });
+
+    } catch (error: unknown) {
+      request.log.error(error);
+
+      return reply.status(500).send({
+        message: "Erro ao gerar questões para as matérias selecionadas.",
+      });
+    }
+  });
+
 
   //   TODO
   app.post<{
@@ -161,14 +215,14 @@ export const pdfAnalysis: FastifyPluginAsync = async (app) => {
 
         const { concurso, disciplinas } = request.body;
 
-        const response = await AnalyseEditalByuserText({concurso, disciplinas});
+        const response = await AnalyseEditalByuserText({ concurso, disciplinas });
 
         // return reply.code(200).send({
         //   message: "Conteúdo do edital recebido com sucesso.",
         //   concurso,
         //   disciplinas
         // });
-           return reply.code(200).send({
+        return reply.code(200).send({
           response
         });
 

@@ -1,0 +1,40 @@
+@startuml
+title Sequência — Login
+autonumber
+actor "Concurseiro" as U
+participant "Frontend" as FE
+participant "Fastify\n/auth/login" as API
+participant "auth.service\nlogin()" as Auth
+participant "userRepository" as Repo
+database "PostgreSQL\n(users)" as DB
+participant "Argon2" as Hash
+participant "JWT" as JWT
+
+U -> FE: Informa e-mail e senha
+FE -> API: POST /auth/login\n{ email, password }
+API -> API: Valida o corpo da requisição
+API -> Auth: login(app, input)
+Auth -> Auth: Normaliza e-mail
+Auth -> Repo: findByEmail(email)
+Repo -> DB: SELECT usuário por e-mail
+DB --> Repo: Usuário + password_hash\nou nenhum registro
+Repo --> Auth: Resultado da consulta
+
+alt Usuário não encontrado
+  Auth --> API: InvalidCredentialsError
+  API --> FE: HTTP 401\n"E-mail ou senha inválidos"
+else Usuário encontrado
+  Auth -> Hash: verify(password_hash, senha informada)
+  Hash --> Auth: true ou false
+  alt Senha incorreta
+    Auth --> API: InvalidCredentialsError
+    API --> FE: HTTP 401\n"E-mail ou senha inválidos"
+  else Senha correta
+    Auth -> JWT: sign({ sub: user.id, email })
+    JWT --> Auth: token JWT (expiração configurada: 12h)
+    Auth --> API: { user público, token }
+    API --> FE: HTTP 200\n{ user, token }
+    FE --> U: Exibe sessão autenticada
+  end
+end
+@enduml

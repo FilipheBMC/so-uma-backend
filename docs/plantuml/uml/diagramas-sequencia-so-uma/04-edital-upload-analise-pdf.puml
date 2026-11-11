@@ -1,0 +1,55 @@
+@startuml
+title Sequência — Upload e análise de edital PDF
+autonumber
+actor "Concurseiro" as U
+participant "Frontend" as FE
+participant "Fastify\nPOST /editais/pdf" as API
+participant "authenticate()" as Auth
+participant "JWT plugin" as JWT
+participant "edital-analysis.service\neditalAnalyse()" as Extract
+participant "unpdf" as PDF
+participant "ai/openrouter.service\nAnalyseTextFromPDF()" as AI
+participant "OpenRouter API" as OR
+
+U -> FE: Seleciona edital em PDF
+FE -> API: POST /editais/pdf\nmultipart/form-data
+API -> Auth: preHandler do plugin
+Auth -> JWT: jwtVerify()
+alt Token inválido/ausente
+  JWT --> Auth: Falha
+  Auth --> FE: HTTP 401
+else Token válido
+  JWT --> Auth: Identidade validada
+  API -> API: request.file()\nlimite de 1 arquivo e 10 MB
+  alt Arquivo ausente, extensão incorreta,\nvazio ou PDF inválido
+    API --> FE: HTTP 400 ou 413
+  else Arquivo validado
+    API -> Extract: editalAnalyse(pdfBuffer)
+    Extract -> Extract: Confere Buffer e assinatura %PDF-
+    Extract -> PDF: getDocumentProxy()
+    PDF --> Extract: Documento PDF
+    Extract -> PDF: extractText(mergePages=true)
+    PDF --> Extract: Texto extraído
+    Extract -> Extract: Limpa espaços e quebras de linha
+    alt Texto vazio / PDF sem texto extraível
+      Extract --> API: Erro de extração
+      API --> FE: Resposta de erro
+    else Texto extraído
+      Extract --> API: textExtracted
+      API -> AI: AnalyseTextFromPDF(textExtracted)
+      AI -> OR: POST /api/v1/chat/completions\nprompt NEW_PROMPT + texto
+      OR --> AI: Conteúdo gerado
+      AI -> AI: Faz parse do JSON
+      AI -> AI: Valida estrutura groups e subjects
+      alt Resposta inválida ou erro do provedor
+        AI --> API: Exceção
+        API --> FE: Resposta de erro
+      else Análise válida
+        AI --> API: EditalAnalysis
+        API --> FE: HTTP 200\n{ message, analysis }
+        FE --> U: Exibe análise do edital
+      end
+    end
+  end
+end
+@enduml
