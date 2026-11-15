@@ -78,8 +78,14 @@ export interface QuestApiResponse {
   };
 }
 
+// export interface QuestionSubjectResult {
+//   materia: string;
+//   questions: QuestApiResponse;
+// }
+
 export interface QuestionSubjectResult {
   materia: string;
+  assunto?: string;
   questions: QuestApiResponse;
 }
 

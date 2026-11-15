@@ -1,0 +1,128 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../generated/quest-catalog"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum CatalogSyncStatus {
+    RUNNING
+    SUCCEEDED
+    FAILED
+}
+
+enum SemanticMappingStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+enum SemanticMappingMethod {
+    EXACT
+    NORMALIZED
+    AI
+    MANUAL
+}
+
+model QuestCatalogSubject {
+    id              String  @id @default(uuid()) @db.Uuid
+    name            String  @unique
+    normalized_name String
+    is_active       Boolean @default(true)
+
+    first_seen_at DateTime @default(now()) @db.Timestamptz(6)
+    last_seen_at  DateTime @default(now()) @db.Timestamptz(6)
+    created_at    DateTime @default(now()) @db.Timestamptz(6)
+    updated_at    DateTime @updatedAt @db.Timestamptz(6)
+
+    topics            QuestCatalogTopic[]
+    semantic_mappings SemanticMapping[]
+
+    @@index([normalized_name])
+    @@index([is_active])
+    @@map("quest_catalog_subjects")
+}
+
+model QuestCatalogTopic {
+    id              String  @id @default(uuid()) @db.Uuid
+    subject_id      String  @db.Uuid
+    name            String
+    normalized_name String
+    is_active       Boolean @default(true)
+
+    first_seen_at DateTime @default(now()) @db.Timestamptz(6)
+    last_seen_at  DateTime @default(now()) @db.Timestamptz(6)
+    created_at    DateTime @default(now()) @db.Timestamptz(6)
+    updated_at    DateTime @updatedAt @db.Timestamptz(6)
+
+    subject QuestCatalogSubject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+
+    semantic_mappings SemanticMapping[]
+
+    @@unique([subject_id, name])
+    @@index([subject_id, normalized_name])
+    @@index([is_active])
+    @@map("quest_catalog_topics")
+}
+
+model CatalogSyncRun {
+    id     String            @id @default(uuid()) @db.Uuid
+    status CatalogSyncStatus @default(RUNNING)
+
+    subjects_processed Int @default(0)
+    topics_processed   Int @default(0)
+
+    subjects_created Int @default(0)
+    topics_created   Int @default(0)
+
+    // Última matéria completamente processada e salva.
+    last_subject_name String?
+
+    started_at    DateTime  @default(now()) @db.Timestamptz(6)
+    finished_at   DateTime? @db.Timestamptz(6)
+    error_message String?
+
+    @@index([status, started_at])
+    @@map("catalog_sync_runs")
+}
+
+model SemanticMapping {
+    id String @id @default(uuid()) @db.Uuid
+
+    source_subject_name       String
+    source_topic_name         String?
+    normalized_source_subject String
+    normalized_source_topic   String?
+
+    quest_subject_id String  @db.Uuid
+    quest_topic_id   String? @db.Uuid
+
+    confidence Decimal?              @db.Decimal(5, 4)
+    method     SemanticMappingMethod @default(AI)
+    status     SemanticMappingStatus @default(PENDING)
+    model      String?
+
+    created_at DateTime @default(now()) @db.Timestamptz(6)
+    updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+    //   quest_subject QuestCatalogSubject @relation( fields: [quest_subject_id], references: [id], onDelete: Restrict)
+
+    //   quest_topic QuestCatalogTopic? @relation( fields: [quest_topic_id], references: [id], onDelete: SetNull)
+
+    //   @@index([normalized_source_subject, normalized_source_topic])
+    //   @@index([quest_subject_id, quest_topic_id])
+    //   @@index([status])
+    //   @@map("semantic_mappings")
+    quest_subject QuestCatalogSubject @relation(fields: [quest_subject_id], references: [id], onDelete: Restrict)
+
+    quest_topic QuestCatalogTopic? @relation(fields: [quest_topic_id], references: [id], onDelete: SetNull)
+
+    // Impede cadastrar a mesma equivalência de origem mais de uma vez.
+    @@unique([normalized_source_subject, normalized_source_topic], map: "uq_semantic_mapping_source")
+    @@index([normalized_source_subject, normalized_source_topic])
+    @@index([quest_subject_id, quest_topic_id])
+    @@index([status])
+    @@map("semantic_mappings")
+}

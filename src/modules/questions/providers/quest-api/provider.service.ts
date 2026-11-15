@@ -93,7 +93,45 @@ export const getQuestions = async (
 //     return await response.json();
 // }
 
-export async function questionGetter(data: QuestionResearcherQuestion): Promise<QuestApiResponse> {
+// export async function questionGetter(data: QuestionResearcherQuestion): Promise<QuestApiResponse> {
+//     if (!link) {
+//         throw new Error("URL da QuestAPI não configurada.");
+//     }
+
+//     if (!apiKey) {
+//         throw new Error("DB_QUEST não configurada no .env.");
+//     }
+
+//     const params = new URLSearchParams();
+
+//     params.set("per_page", String(data.amount));
+//     params.set("materia", data.subject);
+//     params.set("include_gabarito", "true");
+//     params.set("page", "1");
+
+//     const url = `${link.replace(/\/+$/, "")}/questoes?${params.toString()}`;
+
+//     const response = await fetch(url, {
+//         method: "GET",
+//         headers: {
+//             "X-API-Key": apiKey,
+//             Accept: "application/json",
+//         },
+//     });
+
+//     if (!response.ok) {
+//         throw new Error(`QuestAPI retornou HTTP ${response.status}`);
+//     }
+
+
+//     const result = await response.json();
+
+//     return result as QuestApiResponse;
+// }
+
+export async function questionGetter(
+    data: QuestionResearcherQuestion
+): Promise<QuestApiResponse> {
     if (!link) {
         throw new Error("URL da QuestAPI não configurada.");
     }
@@ -109,6 +147,11 @@ export async function questionGetter(data: QuestionResearcherQuestion): Promise<
     params.set("include_gabarito", "true");
     params.set("page", "1");
 
+    // Adiciona o assunto quando informado.
+    if (data.topic?.trim()) {
+        params.set("assunto", data.topic.trim());
+    }
+
     const url = `${link.replace(/\/+$/, "")}/questoes?${params.toString()}`;
 
     const response = await fetch(url, {
@@ -122,7 +165,6 @@ export async function questionGetter(data: QuestionResearcherQuestion): Promise<
     if (!response.ok) {
         throw new Error(`QuestAPI retornou HTTP ${response.status}`);
     }
-
 
     const result = await response.json();
 

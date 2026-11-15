@@ -55,6 +55,50 @@ export async function searchQuestions(
 //   };
 // }
 
+// export async function questionService(
+//   data: QuestionResearcher
+// ): Promise<QuestionServiceResult> {
+
+//   const results: QuestionSubjectResult[] = [];
+//   const notifications: string[] = [];
+
+//   for (const subject of data.subjects) {
+//     if (subject.amount === null || subject.amount <= 0) {
+//       continue;
+//     }
+
+//     try {
+//       const questions = await questionGetter({
+//         subject: subject.name,
+//         amount: subject.amount,
+//       });
+
+//       results.push({
+//         materia: subject.name,
+//         questions,
+//       });
+
+//       if (questions.data.items.length === 0) {
+//         notifications.push(
+//           `Nenhuma questão encontrada para ${subject.name}.`
+//         );
+//       }
+
+//     } catch (error) {
+//       console.error(`Erro ao buscar ${subject.name}:`, error);
+
+//       notifications.push(
+//         `Não foi possível buscar questões de ${subject.name}.`
+//       );
+//     }
+//   }
+
+//   return {
+//     results,
+//     notifications,
+//   };
+// }
+
 export async function questionService(
   data: QuestionResearcher
 ): Promise<QuestionServiceResult> {
@@ -63,33 +107,85 @@ export async function questionService(
   const notifications: string[] = [];
 
   for (const subject of data.subjects) {
-    if (subject.amount === null || subject.amount <= 0) {
+
+    if (subject.amount === null) {
       continue;
     }
 
-    try {
-      const questions = await questionGetter({
-        subject: subject.name,
-        amount: subject.amount,
-      });
+    if (!Number.isInteger(subject.amount) || subject.amount <= 0) {
+      notifications.push(
+        `Quantidade inválida de questões para ${subject.name}.`
+      );
+      continue;
+    }
 
-      results.push({
-        materia: subject.name,
-        questions,
-      });
+    // Remove espaços desnecessários e assuntos duplicados.
+    const topics = Array.from(
+      new Set(
+        (subject.topics ?? [])
+          .map((topic) => topic.trim())
+          .filter(Boolean)
+      )
+    );
 
-      if (questions.data.items.length === 0) {
-        notifications.push(
-          `Nenhuma questão encontrada para ${subject.name}.`
-        );
+    // Quando não existem assuntos, busca diretamente pela matéria.
+    const topicsToSearch: (string | undefined)[] =
+      topics.length > 0 ? topics : [undefined];
+
+    // Distribui a quantidade total entre os assuntos.
+    const distribution =
+      topics.length > 0
+        ? distributeQuestions(subject.amount, topics.length)
+        : [subject.amount];
+
+    for (let index = 0; index < topicsToSearch.length; index++) {
+
+      const topic = topicsToSearch[index];
+      const amount = distribution[index];
+
+      if (amount === undefined || amount <= 0) {
+        if (topic) {
+          notifications.push(
+            `Não foram reservadas questões para o assunto "${topic}" de ${subject.name}, pois a quantidade total é insuficiente para todos os assuntos.`
+          );
+        }
+
+        continue;
       }
 
-    } catch (error) {
-      console.error(`Erro ao buscar ${subject.name}:`, error);
+      try {
+        const questions = await questionGetter({
+          subject: subject.name,
+          amount,
+          ...(topic ? { topic } : {}),
+        });
 
-      notifications.push(
-        `Não foi possível buscar questões de ${subject.name}.`
-      );
+        results.push({
+          materia: subject.name,
+          ...(topic ? { assunto: topic } : {}),
+          questions,
+        });
+
+        if (questions.data.items.length === 0) {
+          notifications.push(
+            topic
+              ? `Nenhuma questão encontrada para ${subject.name} — ${topic}.`
+              : `Nenhuma questão encontrada para ${subject.name}.`
+          );
+        }
+
+      } catch (error) {
+        console.error(
+          `Erro ao buscar questões de ${subject.name}${topic ? ` — ${topic}` : ''}:`,
+          error
+        );
+
+        notifications.push(
+          topic
+            ? `Não foi possível buscar questões de ${subject.name} — ${topic}.`
+            : `Não foi possível buscar questões de ${subject.name}.`
+        );
+      }
     }
   }
 
@@ -97,4 +193,19 @@ export async function questionService(
     results,
     notifications,
   };
+}
+
+// Distribui igualmente a quantidade de questões.
+function distributeQuestions(
+  total: number,
+  subjectCount: number,
+): number[] {
+
+  const base = Math.floor(total / subjectCount);
+  const remainder = total % subjectCount;
+
+  return Array.from(
+    { length: subjectCount },
+    (_, index) => base + (index < remainder ? 1 : 0),
+  );
 }

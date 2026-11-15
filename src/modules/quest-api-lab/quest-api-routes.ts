@@ -6,6 +6,16 @@ import {
   getLabTopics,
 } from './quest-api-lab.service.js'
 
+// Estrutura recebida do frontend
+interface ManualStudySelectionBody {
+  source: 'manual'
+  subjects: {
+    name: string
+    topics: string[]
+  }[]
+}
+
+// Validação dos parâmetros de paginação
 function parsePagination(
   pageValue?: string,
   perPageValue?: string,
@@ -28,7 +38,9 @@ function parsePagination(
 
 const questApiLabRoutes: FastifyPluginAsync = async (app) => {
 
-  // Listar matérias
+  // ==========================================
+  // 1. Listar matérias
+  // ==========================================
   app.get<{
     Querystring: {
       page?: string
@@ -60,7 +72,9 @@ const questApiLabRoutes: FastifyPluginAsync = async (app) => {
     }
   })
 
-  // Listar assuntos de uma matéria
+  // ==========================================
+  // 2. Listar assuntos de uma matéria
+  // ==========================================
   app.get<{
     Querystring: {
       materia?: string
@@ -103,6 +117,91 @@ const questApiLabRoutes: FastifyPluginAsync = async (app) => {
       })
     }
   })
+
+  // ==========================================
+  // 3. Receber seleção manual do frontend
+  // ==========================================
+  app.post<{
+    Body: ManualStudySelectionBody
+  }>(
+    '/selection',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['source', 'subjects'],
+          additionalProperties: false,
+          properties: {
+            source: {
+              type: 'string',
+              enum: ['manual'],
+            },
+            subjects: {
+              type: 'array',
+              minItems: 1,
+              items: {
+                type: 'object',
+                required: ['name', 'topics'],
+                additionalProperties: false,
+                properties: {
+                  name: {
+                    type: 'string',
+                    minLength: 1,
+                  },
+                  topics: {
+                    type: 'array',
+                    minItems: 1,
+                    items: {
+                      type: 'string',
+                      minLength: 1,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { subjects } = request.body
+
+      // Verifica se existem nomes e assuntos preenchidos
+      const hasEmptyValues = subjects.some(
+        (subject) =>
+          !subject.name.trim() ||
+          subject.topics.some((topic) => !topic.trim()),
+      )
+
+      if (hasEmptyValues) {
+        return reply.status(400).send({
+          message: 'Informe matérias e assuntos válidos.',
+        })
+      }
+
+      // Normaliza os dados recebidos
+      const normalizedSubjects = subjects.map((subject) => ({
+        name: subject.name.trim(),
+        topics: subject.topics.map((topic) => topic.trim()),
+      }))
+
+      request.log.info(
+        {
+          source: 'manual',
+          subjects: normalizedSubjects,
+        },
+        'Seleção manual recebida.',
+      )
+
+      return reply.status(200).send({
+        message: 'Seleção manual recebida com sucesso.',
+        data: {
+          source: 'manual',
+          subjects: normalizedSubjects,
+        },
+      })
+    },
+  )
 }
 
 export default questApiLabRoutes

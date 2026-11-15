@@ -3,10 +3,16 @@ import { AnalyseEditalByuserText, editalAnalyse } from "./edital-analysis.servic
 import type { EditalAnalysis } from "./types/editalAnalysis.interface.js";
 import { AnalyseTextFromPDF } from "../ai/openrouter.service.js";
 import { studyOrchestror } from "../study/study-preparation.service.js";
+
 import { authenticate } from "../auth/auth.middleware.js";
+
+// import type {
+//   EditalAnalysis as PdfAIAnalysis
+// } from "../ai/openrouter.service.js";
+
 import type {
-  EditalAnalysis as PdfAIAnalysis
-} from "../ai/openrouter.service.js";
+  StudyPreparationRequest,
+} from "../../types/Communication.types.js";
 
 export type SubjectTopics = {
   assunto: string;
@@ -105,44 +111,94 @@ export const pdfAnalysis: FastifyPluginAsync = async (app) => {
   });
 
 
+  // app.post<{
+  //   Body: {
+  //     analysis: PdfAIAnalysis;
+  //   };
+  // }>("/pdf/questions", async (request, reply) => {
+  //   try {
+  //     const { analysis } = request.body;
+
+  //     // Validação básica dos dados recebidos.
+  //     if (
+  //       !analysis ||
+  //       !Array.isArray(analysis.subjects) ||
+  //       analysis.subjects.length === 0 ||
+  //       !Array.isArray(analysis.groups)
+  //     ) {
+  //       return reply.status(400).send({
+  //         message: "Envie uma análise válida com pelo menos uma matéria.",
+  //       });
+  //     }
+
+  //     const result = await studyOrchestror({
+  //       source: "edital",
+  //       data: analysis,
+  //     });
+
+  //     return reply.status(200).send({
+  //       message: "Questões geradas com sucesso.",
+  //       result,
+  //     });
+
+  //   } catch (error: unknown) {
+  //     request.log.error(error);
+
+  //     return reply.status(500).send({
+  //       message: "Erro ao gerar questões para as matérias selecionadas.",
+  //     });
+  //   }
+  // });
+
   app.post<{
-    Body: {
-      analysis: PdfAIAnalysis;
-    };
-  }>("/pdf/questions", async (request, reply) => {
-    try {
-      const { analysis } = request.body;
+  Body: StudyPreparationRequest;
+}>("/pdf/questions", async (request, reply) => {
+  try {
+    const { subjects } = request.body;
 
-      // Validação básica dos dados recebidos.
-      if (
-        !analysis ||
-        !Array.isArray(analysis.subjects) ||
-        analysis.subjects.length === 0 ||
-        !Array.isArray(analysis.groups)
-      ) {
-        return reply.status(400).send({
-          message: "Envie uma análise válida com pelo menos uma matéria.",
-        });
-      }
-
-      const result = await studyOrchestror({
-        source: "edital",
-        data: analysis,
-      });
-
-      return reply.status(200).send({
-        message: "Questões geradas com sucesso.",
-        result,
-      });
-
-    } catch (error: unknown) {
-      request.log.error(error);
-
-      return reply.status(500).send({
-        message: "Erro ao gerar questões para as matérias selecionadas.",
+    // Verifica se existem matérias.
+    if (!Array.isArray(subjects) || subjects.length === 0) {
+      return reply.status(400).send({
+        message: "Adicione pelo menos uma matéria.",
       });
     }
-  });
+
+    // Valida cada matéria.
+    const invalidSubject = subjects.some((subject) => {
+      return (
+        !subject.materia?.trim() ||
+        !Array.isArray(subject.topics) ||
+        !subject.topics.every(
+          (topic) => typeof topic === "string" && topic.trim().length > 0
+        ) ||
+        !Number.isInteger(subject.amountQuestions) ||
+        subject.amountQuestions < 1 ||
+        subject.amountQuestions > 200
+      );
+    });
+
+    if (invalidSubject) {
+      return reply.status(400).send({
+        message: "Existem matérias com informações inválidas.",
+      });
+    }
+
+    // Envia a preparação para o orquestrador.
+    const result = await studyOrchestror(request.body);
+
+    return reply.status(200).send({
+      message: "Questões geradas com sucesso.",
+      result,
+    });
+
+  } catch (error: unknown) {
+    request.log.error(error);
+
+    return reply.status(500).send({
+      message: "Erro ao gerar questões para as matérias selecionadas.",
+    });
+  }
+});
 
 
   //   TODO
